@@ -12,7 +12,7 @@ import json
 desired_date = date(2018, 6, 19)
 
 originAS = 28000
-
+'''
 rrc00_bview_url = 'http://data.ris.ripe.net/rrc00/{}.{}/bview.{}.0800.gz'.format(desired_date.strftime('%Y'),
                                                                                  desired_date.strftime('%m'),
                                                                                  desired_date.strftime('%Y%m%d'))
@@ -43,14 +43,47 @@ with open(asPaths_file, 'w') as asPaths_f:
 
     p2.kill()
     p.kill()
-    
+'''    
 
-def parse_as_paths(input_file):
+def set_sizes(node_dict):
+    # Can clean this up later but just a first pass at categorising the node based on
+    # hemegeny. Size and other properties can then be configured as appropriate at the
+    # UI
+    for node in node_dict:
+        hege = node_dict[node]["hege"]
+        if hege == 0:
+            category = 'xsmall'
+        elif hege < 0.1:
+            category = 'small'
+        elif hege < 0.3:
+            category = 'medium'
+        elif hege < 0.6:
+            category = 'large'
+        elif hege >= 0.6 and hege < 0.9:
+            category = 'xlarge'
+        else:
+            category = 'xxlarge'
 
-    nodes = set()
+        node_dict[node]["category"] = category
+
+    return node_dict
+
+def load_as_paths(input_file='all_as_paths.asc', asn=originAS):
+    # From the list of all AS paths, import only the ones originating in the interesting AS
+    as_paths = list()
+    origin = str(asn)+'\n'
+    for line in open(input_file, 'r'):
+        if line.endswith(origin):
+            as_paths.append(line.strip())
+    return(as_paths)
+
+def parse_as_paths(as_path_list):
+    # From the list of originated paths, extract all nodes (unique ASs) and edges (unique 
+    # connections between node pairs)
+    nodes = dict()
     edges = list()
 
-    for as_path in open(input_file):
+    for as_path in as_path_list:
         # each line represents the as-path for a route with the selected ASN as the originator. 
 
         # path needs to be manipulated from AS-Path to remove as-prepends as that's not a neighborship.
@@ -61,46 +94,53 @@ def parse_as_paths(input_file):
         # all devices. As a set we don't need to check first, and don't care about sequence
         for node in as_path.split(' '):
             if not node == '':
-                nodes.add(int(node.strip()))
+                node = int(node.strip())
+                nodes[node] = {'id': node, 'category': 0, 'label': '', 'hege': 0, 'distance': 100, 'root': False}
                 if not node in path:
-                    path.append(int(node.strip()))
+                    path.append(node)
 
         # Having worked through the AS-Path, and removed prepends, we can now consider the relationships.
         if len(path) > 1:
+            # First the edges
             for i in range(len(path)-1):
                 as_tuple = (path[i], path[i+1])
                 dict_to_insert = {"from": min(as_tuple), "to": max(as_tuple)}
                 if dict_to_insert not in edges:
                     edges.append(dict_to_insert)
 
+            # And then the minimum distance from the AS
+            for position, node in enumerate(path):
+                nodes[node]['distance'] = min(nodes[node]['distance'], (len(path) - 1 - position))
+
+
     return( nodes, edges )
 
-mnodes, medges = parse_as_paths(asPaths_file)
+
+as_path_list = load_as_paths('all_as_paths.asc', originAS)
+mnodes, medges = parse_as_paths(as_path_list)
+
+mnodes[originAS]['root'] = True
 
 
 hege_url = 'https://ihr.iijlab.net/ihr/api/hegemony/?originasn={}&timebin__gte={}+08:00&af=4'.format(originAS, desired_date)
 
 hege_json = requests.get(hege_url).json()
 
-nodes_dict = {}
-
 for res in hege_json['results']:
-    if res['asn'] not in nodes_dict:
-        nodes_dict[res['asn']] = {}
+    if res['asn'] not in mnodes:
+        print("Ahhhhrrrrggghhhh")
     
-    nodes_dict[res['asn']]['id'] = res['asn']
-    nodes_dict[res['asn']]['hege'] = res['hege']
-    nodes_dict[res['asn']]['label'] = res['asn_name']
+    mnodes[res['asn']]['hege'] = res['hege']
+    mnodes[res['asn']]['label'] = res['asn_name']
     
-for node in mnodes:
-    if node not in nodes_dict:
-        nodes_dict[node] = {'id':node, 'hege':0, 'label':''}
-
+set_sizes(mnodes)
 
 json_UI_input = {'comment': 'AS interdependence Viz'}
-json_UI_input['nodes'] = list(nodes_dict.values())
+json_UI_input['nodes'] = list(mnodes.values())
 json_UI_input['edges'] = medges
 
-file_for_UI = '/Users/sofia/Documents/GitHub/ASinterdependenceViz/input_for_UI.json'
+file_for_UI = 'input_for_UI.json'
 with open(file_for_UI, 'w') as json_f:
     json_f.write(json.dumps(json_UI_input))
+
+
