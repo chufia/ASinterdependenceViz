@@ -45,7 +45,15 @@ with open(asPaths_file, 'w') as asPaths_f:
     p.kill()
 '''    
 
-def set_sizes(node_dict):
+def define_root(node_dict, root_asn=originAS):
+    # In the UI we have the ability to centralise the root node. This function just
+    # allows us to specifically configure the origin AS node independently
+    mnodes[root_asn]['root'] = True
+    mnodes[root_asn]['category'] = 'home'
+
+    return node_dict
+
+def classify_nodes(node_dict):
     # Can clean this up later but just a first pass at categorising the node based on
     # hemegeny. Size and other properties can then be configured as appropriate at the
     # UI
@@ -104,7 +112,7 @@ def parse_as_paths(as_path_list):
             # First the edges
             for i in range(len(path)-1):
                 as_tuple = (path[i], path[i+1])
-                dict_to_insert = {"from": min(as_tuple), "to": max(as_tuple)}
+                dict_to_insert = {"source": min(as_tuple), "target": max(as_tuple)}
                 if dict_to_insert not in edges:
                     edges.append(dict_to_insert)
 
@@ -119,7 +127,6 @@ def parse_as_paths(as_path_list):
 as_path_list = load_as_paths('all_as_paths.asc', originAS)
 mnodes, medges = parse_as_paths(as_path_list)
 
-mnodes[originAS]['root'] = True
 
 
 hege_url = 'https://ihr.iijlab.net/ihr/api/hegemony/?originasn={}&timebin__gte={}+08:00&af=4'.format(originAS, desired_date)
@@ -133,9 +140,11 @@ for res in hege_json['results']:
     mnodes[res['asn']]['hege'] = res['hege']
     mnodes[res['asn']]['label'] = res['asn_name']
     
-set_sizes(mnodes)
+mnodes = classify_nodes(mnodes)
+mnodes = define_root(mnodes, originAS)
 
-json_UI_input = {'comment': 'AS interdependence Viz'}
+
+json_UI_input = {'comment': 'AS Interdependence Viz'}
 json_UI_input['nodes'] = list(mnodes.values())
 json_UI_input['edges'] = medges
 
