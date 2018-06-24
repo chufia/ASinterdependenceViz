@@ -6,52 +6,56 @@ Created on Sat Jun 23 11:46:02 2018
 import requests
 import gzip
 import shlex, subprocess
-from datetime import date
 import json
+from datetime import date
 
 desired_date = date(2018, 6, 19)
-
 originAS = 28000
-'''
-rrc00_bview_url = 'http://data.ris.ripe.net/rrc00/{}.{}/bview.{}.0800.gz'.format(desired_date.strftime('%Y'),
-                                                                                 desired_date.strftime('%m'),
-                                                                                 desired_date.strftime('%Y%m%d'))
 
-bview_file = '/Users/sofia/Documents/GitHub/ASinterdependenceViz/bview_rrc00_{}_0800.gz'.format(desired_date.strftime('%Y%m%d'))
-
-r = requests.get(rrc00_bview_url)
-open(bview_file, 'wb').write(r.content)
-
-bview_unzipped = '.'.join(bview_file.split('.')[:-1])
-
-with gzip.open(bview_file, 'rb') as f:
-    open(bview_unzipped, 'wb').write(f.read())
-
-asPaths_file = '/Users/sofia/Documents/GitHub/ASinterdependenceViz/ASpaths.txt'
-
-with open(asPaths_file, 'w') as asPaths_f:
-    cmd = shlex.split('bgpdump -m {}'.format(bview_unzipped))
-    p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+def getBaseVariables(desired_date, originAS):
+    rrc00_bview_url = 'http://data.ris.ripe.net/rrc00/{}.{}/bview.{}.0800.gz'.format(desired_date.strftime('%Y'),
+                                                                                     desired_date.strftime('%m'),
+                                                                                     desired_date.strftime('%Y%m%d'))
     
-    cmd2 = shlex.split('cut -f 7 -d "|"')
-    p2 = subprocess.Popen(cmd2, stdin=p.stdout, stdout=subprocess.PIPE)
+    bview_file = 'bview_rrc00_{}_0800.gz'.format(desired_date.strftime('%Y%m%d'))
     
-    cmd3 = shlex.split('grep -e " {}$"'.format(originAS))
-    p3 = subprocess.Popen(cmd3, stdin=p2.stdout, stdout=asPaths_f)
+    hege_url = 'https://ihr.iijlab.net/ihr/api/hegemony/?originasn={}&timebin__gte={}+08:00&af=4'.format(originAS, desired_date)
+    
+    file_for_UI = 'input_for_UI.json'
+    
+    return rrc00_bview_url, bview_file, hege_url, file_for_UI
 
-    p3.communicate()
+def getASpathsFromBview(bview_url, bview_file):
+    r = requests.get(bview_url)
+    open(bview_file, 'wb').write(r.content)
+    
+    bview_unzipped = '.'.join(bview_file.split('.')[:-1])
+    
+    with gzip.open(bview_file, 'rb') as f:
+        open(bview_unzipped, 'wb').write(f.read())
+    
+    asPaths_file = 'ASpaths.txt'
+    
+    with open(asPaths_file, 'w') as asPaths_f:
+        cmd = shlex.split('bgpdump -m {}'.format(bview_unzipped))
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+        
+        cmd2 = shlex.split('cut -f 7 -d "|"')
+        p2 = subprocess.Popen(cmd2, stdin=p.stdout, stdout=asPaths_f)
+        
+        p2.communicate()
+    
+        p.kill()
+    
+    return asPaths_file
 
-    p2.kill()
-    p.kill()
-'''    
-
-def define_root(node_dict, root_asn=originAS):
+def define_root(mnodes, root_asn=originAS):
     # In the UI we have the ability to centralise the root node. This function just
     # allows us to specifically configure the origin AS node independently
     mnodes[root_asn]['root'] = True
     mnodes[root_asn]['category'] = 'home'
 
-    return node_dict
+    return mnodes
 
 def classify_nodes(node_dict):
     # Can clean this up later but just a first pass at categorising the node based on
@@ -123,33 +127,38 @@ def parse_as_paths(as_path_list):
 
     return( nodes, edges )
 
-
-as_path_list = load_as_paths('all_as_paths.asc', originAS)
-mnodes, medges = parse_as_paths(as_path_list)
-
-
-
-hege_url = 'https://ihr.iijlab.net/ihr/api/hegemony/?originasn={}&timebin__gte={}+08:00&af=4'.format(originAS, desired_date)
-
-hege_json = requests.get(hege_url).json()
-
-for res in hege_json['results']:
-    if res['asn'] not in mnodes:
-        print("Ahhhhrrrrggghhhh")
+def getAShegeData(hege_url, mnodes):
     
-    mnodes[res['asn']]['hege'] = res['hege']
-    mnodes[res['asn']]['label'] = res['asn_name']
+    hege_json = requests.get(hege_url).json()
+        
+    for res in hege_json['results']:
+        if res['asn'] not in mnodes:
+            print("Ahhhhrrrrggghhhh")
+        
+        mnodes[res['asn']]['hege'] = res['hege']
+        mnodes[res['asn']]['label'] = res['asn_name']
     
-mnodes = classify_nodes(mnodes)
-mnodes = define_root(mnodes, originAS)
+    return mnodes
 
 
-json_UI_input = {'comment': 'AS Interdependence Viz'}
-json_UI_input['nodes'] = list(mnodes.values())
-json_UI_input['edges'] = medges
-
-file_for_UI = 'input_for_UI.json'
-with open(file_for_UI, 'w') as json_f:
-    json_f.write(json.dumps(json_UI_input))
 
 
+def generateJSON(mnodes, medges):   
+    json_UI_input = {'comment': 'AS interdependence Viz'}
+    json_UI_input['nodes'] = list(mnodes.values())
+    json_UI_input['edges'] = medges
+
+
+#    with open(file_for_UI, 'w') as json_f:
+#        json_f.write(json.dumps(json_UI_input))
+#    
+#    return file_for_UI
+    return json.dumps(json_UI_input)
+
+#rrc00_bview_url, bview_file, hege_url, file_for_UI = getBaseVariables(desired_date, originAS)
+#asPaths_file = getASpathsFromBview(rrc00_bview_url, bview_file)
+#as_paths = load_as_paths(asPaths_file, originAS)
+#mnodes, medges = parse_as_paths(as_paths)
+#mnodes = getAShegeData(hege_url, mnodes)
+#mnodes = classify_nodes(mnodes)
+#mnodes = define_root(mnodes, originAS)

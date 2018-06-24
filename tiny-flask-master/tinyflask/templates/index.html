@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <link rel="icon" href="../../../../favicon.ico">
+
+    <title>AS Interdependence Viz</title>
+
+   
+    <link rel="stylesheet" type="text/css" href="{{ globals.url }}/static/css/vendor.css" >
+    <link rel="stylesheet" href="{{ globals.url }}/static/css/alchemy.css">
+      
+      <style>
+          ul {
+              list-style-type: none;
+          }
+          div#alchemy {
+              background: #fff;
+
+          }
+          
+          svg {  
+              background: #efefef;
+          }
+          
+          .graphArea {
+              padding-top: 20px;
+             // max-width: 75%;
+          }
+          
+          .hegeLegend {
+              border-radius: 50px;
+              margin-right: 10px
+          }
+          
+          .yourAS {
+            background-color: #fff; 
+            border: 3px solid #000;
+                  
+                
+          }
+          
+      </style>
+
+    
+  </head>
+    
+    
+    <body>
+        
+        
+        <div class="container-fluid">
+
+        <header class="header clearfix">
+        <nav>
+           
+
+          <ul class="nav nav-pills" style="float: right">
+            
+            <li class="nav-item">
+              <a class="nav-link" href="#">About</a>
+            </li>
+            
+          </ul>
+            
+            <h3 class="text-muted">AS Interdependence Viz</h3>
+            <h4> Origin AS {{ originAS }} </h4>
+        </nav>
+      </header>
+        
+         
+
+            
+          <div class="row">
+            <div class="col-md-9 graphArea">
+                
+                  <div id="alchemy" class="alchemy"></div>
+              
+            </div>
+              <div class="col-sm-3">
+                
+                  <div>
+                      <h3>Hegemony</h3>
+                      <ul>
+                          <li style="margin-bottom: 5px"><span class= "hegeLegend yourAS" >&nbsp&nbsp&nbsp&nbsp&nbsp</span><span>Your AS</span></li>
+
+                          <li><span class= "hegeLegend" style="background-color: #46B251;">&nbsp&nbsp&nbsp&nbsp&nbsp</span><span>Very Small</span></li>
+                          <li><span class= "hegeLegend" style="background-color: #324D5C;">&nbsp&nbsp&nbsp&nbsp&nbsp</span><span>Small</span></li>
+                          <li><span class= "hegeLegend" style="background-color: #46B29D;">&nbsp&nbsp&nbsp&nbsp&nbsp</span><span>Medium</span></li>
+                          <li><span class= "hegeLegend" style="background-color: #FDD734;">&nbsp&nbsp&nbsp&nbsp&nbsp</span><span>Large</span></li>
+                          <li><span class= "hegeLegend" style="background-color: #F24B21;">&nbsp&nbsp&nbsp&nbsp&nbsp</span><span>Very Large</span></li>
+                          <li><span class= "hegeLegend" style="background-color: #ff0000;">&nbsp&nbsp&nbsp&nbsp&nbsp</span><span>Extremely Large</span></li>
+
+                      
+                      </ul>
+                  </div>
+              
+            </div>
+          </div>
+      </div>
+
+        
+        
+        
+    
+       
+        <script type="text/javascript" src="{{ globals.url }}/static/js/vendor.js"></script>
+        <script type="text/javascript" src="{{ globals.url }}/static/js/alchemy.min.js"></script>
+        
+        <script type="text/javascript">
+            var json = {{ json|safe }};
+                        
+            var config = {
+                dataSource: json,
+                forceLocked: true,   
+                fixRootNodes: false,
+                graphHeight: function(){ return 700; },
+                graphWidth: function(){ return 1000; },      
+                linkDistance: function(){ return 40; },
+                nodeOverlap: function(){ return 40; },
+                nodeRadius: function(){ return 40; },
+                rootNodeRadius: 100,
+                curvedEdges: false,
+                nodeCaption: function(node){
+                    return node.label + " - AS" + node.id;
+                },
+                cluster: false,
+                collisionDetection: true,
+                zoomControls: true,
+                "nodeTypes": {
+                    "category": ["home", "xsmall", "small", "medium", "large", "xlarge", "xxlarge"]
+                },
+                nodeStyle: {
+                "all": {
+                    "color"  : function(node) { 
+                        
+                        return '#000';
+                    },
+                    "radius": function(node) { 
+                        
+                        var asPathLenght = node.getProperties("distance")
+                        
+                        return (1/asPathLenght*20); 
+                    },
+                    "borderColor": "#127DC1",
+                    "borderWidth": 0,
+                    "captionColor": "#fff",
+                    "captionBackground": "#000",
+                    "captionSize": 100,
+                    "highlighted": {
+                        "color" : "#00ff00"
+                        }
+                    },
+                    "home": {
+                        "color"  : "#fff",
+                        "borderColor": "#000",
+                        "borderWidth": 5,
+
+
+                        "radius": function(node) { return 15; },
+                    },
+                    "xsmall": {
+                        "color"  : "#46B251",
+
+                        //"radius": function(node) { return 5; },
+                    },
+                    "small": {
+                        "color"  : "#324D5C",
+
+                        //"radius": function(node) { return 10; },
+                    },                    
+                    "medium": {
+                        "color"  : "#46B29D",
+                        //"radius": function(node) { return 25; },
+                    },                
+                    "large": {
+                        "color"  : "#FDD734",
+                        //"radius": function(node) { return 30; },
+                    },
+                    "xlarge": {
+                        "color"  : "#F24B21",
+                        //"radius": function(node) { return 35; },
+                    },
+                    "xxlarge": {
+                        "color"  : "#ff0000",
+                        //"radius": function(node) { return 40; },
+                    }
+                },  
+                edgeStyle: {
+                    "all": {
+                        "width": 4,
+                        "color": "#CCC",
+                        "opacity": 0.2,
+                        "selected": {
+                            "opacity": 1
+                        },
+                        "highlighted": {
+                            "opacity": 1
+                        },
+                        "hidden": {
+                            "opacity": 1
+                        }
+                    }
+                },
+                
+                
+            };
+            alchemy = new Alchemy(config);
+        </script>
+        
+        
+        <script>
+            $(function() {
+            
+                $('svg').attr('style','');
+
+            });
+            
+        </script>
+        
+</body>
+</html>
